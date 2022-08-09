@@ -15,8 +15,8 @@ SCALE = 7 # 1 week per 360 degrees
 
 
 def main():
-    file = "data/verbruik_20220802.csv"
-    timeunit = 60
+    file = "data/verbruik_20220809.csv"
+    timeunit = 60 # One hour per block
     samples = timeunit/BASETIME
 
     # Parse CSV, prepare data
@@ -52,29 +52,32 @@ def main():
     fig = plt.figure(figsize=(8, 8))
     ax = plt.subplot(111, projection="polar")
     ax.set_rlim(bottom=-2,top=tspan)
+    ax.set_facecolor('black')
 
-    vmax = df["Volume"].max()
+    round_to = 0.5
+    vmax = np.ceil(df["Volume"].max()/round_to)*round_to
 
     for id, entry in df.iterrows():
         # sample normalized distance from colormap
         ndist = entry["Volume"]/vmax
         color = plt.cm.get_cmap(COLORMAP)(ndist)
         tstart = entry["Tijdstip"]-tinit 
-        tstop = tstart + pd.Timedelta(timeunit,'m') # Per 15 minutes
+        tstop = tstart + pd.Timedelta(timeunit,'m')
         
         #Convert to days
-        tstart = tstart/np.timedelta64(1,"D")
-        tstop = tstop/np.timedelta64(1,"D")
+        offset = 0.005
+        tstart = tstart/np.timedelta64(1,"D")-offset
+        tstop = tstop/np.timedelta64(1,"D")+offset
         
         nsamples = 10
         t = np.linspace(tstart, tstop, nsamples)/SCALE
         theta = 2 * np.pi * (t)
-        arc, = ax.plot(theta, t, lw=((ax.transData.transform((1,1))-ax.transData.transform((0,0))))[0]*1.5, zorder=1, color=color, solid_capstyle=CAPSTYLE)
+        #lw=((ax.transData.transform((1,1))-ax.transData.transform((0,0))))[0]*1.75
+        lw=8
+        arc, = ax.plot(theta, t, lw=lw, zorder=1, color=color, solid_capstyle=CAPSTYLE)
     
-    #ax.set_rticks([])
     ax.set_rticks(np.arange(0,tspan))
-    ax.set_yticklabels((np.arange(0,tspan)+tinit.week).astype(int),fontdict={'verticalalignment': 'center', 'horizontalalignment': 'center'}, alpha=0.2)
-    #ax.set_rticks(np.linspace(tinit.week))
+    ax.set_yticklabels((np.arange(0,tspan)+tinit.week).astype(int),fontdict={'verticalalignment': 'center', 'horizontalalignment': 'left'}, alpha=0.6, fontsize=6)
     ax.set_rlabel_position(0)
     ax.set_theta_zero_location("N")
     ax.set_theta_direction(-1)
@@ -82,24 +85,26 @@ def main():
     ax.set_xticks(np.linspace(0, 2*np.pi, 7, endpoint=False))
     ax.set_xticklabels(np.roll(DAYNAMES,-dayinit))
 
+    # Set the orientation of theta labels
     angles = -1*np.linspace(0,2*np.pi,7, endpoint=False)
     angles = np.rad2deg(angles)
 
     labels = []
     for label, angle in zip(ax.get_xticklabels(), angles):
         x,y = label.get_position()
+        # New label on location of original
         lab = ax.text(x,y, label.get_text(), transform=label.get_transform(),
                     ha=label.get_ha(), va=label.get_va())
         lab.set_rotation(angle)
         labels.append(lab)
-    ax.set_xticklabels([])
+    ax.set_xticklabels([]) # Remove original labels
 
     ax.grid(False,axis='y')
 
     norm = mpl.colors.Normalize(vmin=0, vmax=vmax)
     sm = plt.cm.ScalarMappable(cmap=COLORMAP, norm=norm)
     sm.set_array([])
-    plt.colorbar(sm, ticks=np.linspace(0, vmax, 8), fraction=0.04, aspect=60, pad=0.15, label="Verbruik [kWh]", ax=ax)
+    plt.colorbar(sm, ticks=np.linspace(0, vmax, 9), fraction=0.04, aspect=40, pad=0.15, label="Verbruik [kWh]", ax=ax)
 
     plt.show()
 
