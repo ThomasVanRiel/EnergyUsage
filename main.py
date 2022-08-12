@@ -2,7 +2,9 @@ import pandas as pd
 import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
-from matplotlib.ticker import MultipleLocator,AutoMinorLocator
+import matplotlib.ticker as ticker
+import matplotlib.dates as mdates
+from parso import parse
 
 LINEWIDTH=5
 EDGEWIDTH=0
@@ -15,10 +17,18 @@ SCALE = 7 # 1 week per 360 degrees
 
 
 def main():
-    file = "data/verbruik_20220809.csv"
+    file = "data/verbruik_20220812.csv"
     timeunit = 60 # One hour per block
-    samples = timeunit/BASETIME
 
+    df = parse_csv(file)
+
+    #spiral(df,60)
+    line(df)
+    #spectrum(df)
+
+    plt.show()
+
+def parse_csv(file):
     # Parse CSV, prepare data
     keepcols = ["Van Datum", "Van Tijdstip", "Register", "Volume"]
 
@@ -35,14 +45,20 @@ def main():
 
     # Faster testing by only using first rows
     #df = df[0:1000]
-
     df = df.reset_index()
-    df_sampled = pd.DataFrame({"Volume":df["Volume"].groupby(df.index//samples).sum(),"Tijdstip":df["Tijdstip"].groupby(df.index//samples).first()})
 
-    df = df_sampled
+    return df
+
+
+def spiral(df,timeunit=60):
+    samples = timeunit/BASETIME
+
+    # Sample dataframe
+    df = pd.DataFrame({"Volume":df["Volume"].groupby(df.index//samples).sum(),"Tijdstip":df["Tijdstip"].groupby(df.index//samples).first()})
 
     tinit = df["Tijdstip"].min()
     dayinit = tinit.weekday()
+
     # Start on monday
     tinit -= np.timedelta64(dayinit,"D")
     dayinit = 0
@@ -106,7 +122,45 @@ def main():
     sm.set_array([])
     plt.colorbar(sm, ticks=np.linspace(0, vmax, 9), fraction=0.04, aspect=40, pad=0.15, label="Verbruik [kWh]", ax=ax)
 
-    plt.show()
+def line(df):
+    fig = plt.figure()
+    ax = plt.subplot(111)
+
+    tinit = df["Tijdstip"].min().to_numpy()
+
+    t = df["Tijdstip"].to_numpy()
+    v = df["Volume"].to_numpy()
+    cv = np.cumsum(v)
+
+    td = (np.subtract(t,tinit))/np.timedelta64(1, "D")
+
+    # Weighted average per day
+    w = (7*24*60)//BASETIME
+    av = np.convolve(v, np.ones(w), 'same')/w
+
+    ax.plot(t,v/0.25,alpha=0.5)
+    ax.plot(t,av/0.25,color='C0')
+    ax.set_ylabel('Gemiddeld vermogen [kW]')
+
+    ax2 = ax.twinx()
+    ax2.plot(t,cv,color='C1')
+    ax2.set_ylabel('Verbruik [kWh]')
+
+    months = mdates.MonthLocator(interval=1)
+    months_fmt = mdates.DateFormatter('%b')
+    ax.xaxis.set_major_locator(months)
+    ax.xaxis.set_major_formatter(months_fmt)
+
+    days = mdates.DayLocator(interval=7)
+    ax.xaxis.set_minor_locator(days)
+
+def spectrum(df):
+    dt = 1/24/60*15
+    Fs = 1/dt
+    fig, ax = plt.subplots()
+    ax.magnitude_spectrum(df["Volume"], Fs=Fs)
+    ax.set_xscale('log')
+
 
 if __name__ == "__main__":
     main()
