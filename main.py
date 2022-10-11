@@ -15,16 +15,21 @@ DAYNAMES = ["Maandag", "Dinsdag", "Woensdag", "Donderdag", "Vrijdag", "Zaterdag"
 BASETIME = 15 # 15 minute intervals
 SCALE = 7 # 1 week per 360 degrees
 
+C_DAG = 57.22 + 6.66 + 1 + 1.4416 + 0.2042
+C_NACHT = 40.66 + 5.03 + 1 + 1.4416 + 0.2042
 
 def main():
-    file = "data/verbruik_20220812.csv"
+    file = "data/verbruik_20221004.csv"
     timeunit = 60 # One hour per block
 
     df = parse_csv(file)
 
     #spiral(df,60)
-    line(df)
+    #line(df)
     #spectrum(df)
+    #weekly(df)
+    #daily(df)
+    cost(df)
 
     plt.show()
 
@@ -135,7 +140,7 @@ def line(df):
     td = (np.subtract(t,tinit))/np.timedelta64(1, "D")
 
     # Weighted average per day
-    w = (7*24*60)//BASETIME
+    w = (24*60)//BASETIME
     av = np.convolve(v, np.ones(w), 'same')/w
 
     ax.plot(t,v/0.25,alpha=0.5)
@@ -161,6 +166,37 @@ def spectrum(df):
     ax.magnitude_spectrum(df["Volume"], Fs=Fs)
     ax.set_xscale('log')
 
+def weekly(df):
+    samples = np.timedelta64(1,"W")/np.timedelta64(1,"m")
+    print(samples)
+
+    df = pd.DataFrame({"Volume":df["Volume"].groupby(df["Tijdstip"].dt.isocalendar().week).sum()})
+    fig,ax = plt.subplots()
+    ax.bar(df.index,df["Volume"])
+    ax.set_xlabel("Week")
+    ax.set_ylabel("Verbruik [kWh]")
+    ax.grid(axis='y')    
+
+def daily(df):
+    df = pd.DataFrame({"Volume":df["Volume"].groupby(df["Tijdstip"].dt.isocalendar().week+df["Tijdstip"].dt.isocalendar().day/7).sum()})
+    fig,ax = plt.subplots()
+    ax.bar(df.index,df["Volume"],width=1/7)
+    ax.set_xlabel("Week")
+    ax.set_ylabel("Verbruik [kWh]")
+    ax.grid(axis='y')
+    print("Gemiddeld dagelijks verbruik: {:.3f} kWh".format(np.mean(df.Volume)))
+
+def cost(df):
+    #df_dag = pd.DataFrame({"Volume":df["Volume"].groupby(df["Register"])})
+    df = pd.DataFrame({"Dag":df.query("Register == 'Afname Dag'")["Volume"].groupby(df["Tijdstip"].dt.floor("d")).sum()*C_DAG,"Nacht":df.query("Register == 'Afname Nacht'")["Volume"].groupby(df["Tijdstip"].dt.floor("d")).sum()*C_NACHT})
+    df["Totaal"] = df.sum(axis=1)
+    
+    fig,ax = plt.subplots()
+    ax.bar(df.index,df["Totaal"]/100)
+    ax.set_xlabel("Dag")
+    ax.set_ylabel("Kost [€]")
+    ax.grid(axis='y')
+    print("Gemiddelde dagelijkse kost: €{:.2f}".format(np.mean(df.Totaal/100)))
 
 if __name__ == "__main__":
     main()
