@@ -15,20 +15,20 @@ DAYNAMES = ["Maandag", "Dinsdag", "Woensdag", "Donderdag", "Vrijdag", "Zaterdag"
 BASETIME = 15 # 15 minute intervals
 SCALE = 7 # 1 week per 360 degrees
 
-C_DAG = 57.22 + 6.66 + 1 + 1.4416 + 0.2042
-C_NACHT = 40.66 + 5.03 + 1 + 1.4416 + 0.2042
+C_DAG = (57.22 + 6.66 + 1 + 1.4416 + 0.2042)/100
+C_NACHT = (40.66 + 5.03 + 1 + 1.4416 + 0.2042)/100
 
 def main():
-    file = "data/verbruik_20221004.csv"
+    file = "data/verbruik_20221111.csv"
     timeunit = 60 # One hour per block
 
     df = parse_csv(file)
 
-    #spiral(df,60)
-    #line(df)
+    spiral(df,60)
+    line(df)
     #spectrum(df)
-    #weekly(df)
-    #daily(df)
+    weekly(df)
+    daily(df)
     cost(df)
 
     plt.show()
@@ -192,11 +192,13 @@ def cost(df):
     df["Totaal"] = df.sum(axis=1)
     
     fig,ax = plt.subplots()
-    ax.bar(df.index,df["Totaal"]/100)
+    ax.bar(df.index,df["Totaal"])
     ax.set_xlabel("Dag")
     ax.set_ylabel("Kost [€]")
     ax.grid(axis='y')
-    print("Gemiddelde dagelijkse kost: €{:.2f}".format(np.mean(df.Totaal/100)))
+    print("Gemiddelde dagelijkse kost: €{:.2f}".format(np.mean(df.Totaal)))
+
+    print(df.groupby(pd.Grouper(freq="M")).sum())
 
 if __name__ == "__main__":
     main()
